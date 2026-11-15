@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "songtotext",
+  "version": "${version}",
+  "name": "Song to text",
+  "description": "Текст поточної пісні (Windows media panel + LRCLIB) на екрані або в 3D-світі. Тільки клієнт.",
+  "authors": ["Song to text"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": { "client": ["ua.songtotext.SongToTextClient"] },
+  "depends": { "fabricloader": ">=0.18.0", "minecraft": "~1.21.11", "java": ">=21", "fabric-api": "*" }
+}
