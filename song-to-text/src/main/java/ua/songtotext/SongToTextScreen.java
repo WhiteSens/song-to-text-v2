@@ -25,7 +25,7 @@ public class SongToTextScreen extends Screen {
     private final Screen parent;
     private NativeImageBackedTexture tex;
     private int texW, texH, gx, gy, gw, gh;
-    private boolean dirty = true, pickerOpen = false, dragSV = false, dragHue = false;
+    private boolean dirty = true, pickerOpen = false, dragSV = false, dragHue = false, dragDist = false;
     private final float[] hsv = new float[3];
 
     public SongToTextScreen(Screen parent) {
@@ -94,6 +94,7 @@ public class SongToTextScreen extends Screen {
             if (!in(x, y, SW_X, SW_Y, SW_X + SW_W, SW_Y + SW_H)) return true;
             return true;
         }
+        if (btn == 0 && in(x, y, DS_TX0 - 25, DS_Y, DS_TX1 + 25, DS_Y + DS_H)) { dragDist = true; pickDist(x); return true; }
         if (btn == 0 && in(x, y, TH_X, TH_Y, TH_X + TH_W, TH_Y + TH_H)) { cfg.darkTheme = !cfg.darkTheme; cfg.save(); dirty = true; return true; }
         for (int i = 0; i < 4; i++) {
             if (btn == 0 && in(x, y, TOG_X, ROW_Y[i] - TOG_H / 2, TOG_X + TOG_W, ROW_Y[i] + TOG_H / 2)) {
@@ -119,12 +120,13 @@ public class SongToTextScreen extends Screen {
     public boolean mouseDragged(Click click, double dx, double dy) {
         if (dragSV) { pickSV(rx(click.x()), ry(click.y())); return true; }
         if (dragHue) { pickHue(ry(click.y())); return true; }
+        if (dragDist) { pickDist(rx(click.x())); return true; }
         return super.mouseDragged(click, dx, dy);
     }
 
     @Override
     public boolean mouseReleased(Click click) {
-        if (dragSV || dragHue) { dragSV = dragHue = false; SongToTextClient.config.save(); return true; }
+        if (dragSV || dragHue || dragDist) { dragSV = dragHue = dragDist = false; SongToTextClient.config.save(); return true; }
         return super.mouseReleased(click);
     }
 
@@ -132,9 +134,20 @@ public class SongToTextScreen extends Screen {
     public boolean mouseScrolled(double mouseX, double mouseY, double h, double v) {
         double x = rx(mouseX), y = ry(mouseY);
         int dir = v > 0 ? 1 : -1;
+        if (in(x, y, DS_X, DS_Y, DS_X + DS_W, DS_Y + DS_H)) {
+            Config cfg = SongToTextClient.config;
+            cfg.distance = Math.max(Config.DIST_MIN, Math.min(Config.DIST_MAX, cfg.distance + dir));
+            cfg.save(); dirty = true; return true;
+        }
         if (in(x, y, 677, ROW_Y[2] - 24, 1200, ROW_Y[2] + 24)) { step(0, dir); return true; }
         if (in(x, y, 677, ROW_Y[3] - 24, 1200, ROW_Y[3] + 24)) { step(1, dir); return true; }
         return false;
+    }
+
+    private void pickDist(double x) {
+        double t = Math.max(0, Math.min(1, (x - DS_TX0) / (DS_TX1 - DS_TX0)));
+        SongToTextClient.config.distance = Config.DIST_MIN + (int) Math.round(t * (Config.DIST_MAX - Config.DIST_MIN));
+        dirty = true;
     }
 
     private void pickSV(double x, double y) {

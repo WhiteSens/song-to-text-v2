@@ -25,6 +25,16 @@ public class SongToTextClient implements ClientModInitializer {
     private static final HudRenderer HUD = new HudRenderer();
 
     private static KeyBinding menuKey, toggleKey;
+    private static MediaState sticky = MediaState.EMPTY;
+    private static long stickyAt = 0;
+
+    /** Стан без миготіння: якщо Windows на мить віддала порожні метадані (перемотування), тримаємо попередні до 4 с. */
+    public static MediaState current() {
+        MediaState s = POLLER.state();
+        long now = System.currentTimeMillis();
+        if (s.hasTrack()) { sticky = s; stickyAt = now; return s; }
+        return now - stickyAt < 4000 ? sticky : s;
+    }
 
     @Override
     public void onInitializeClient() {
@@ -45,7 +55,7 @@ public class SongToTextClient implements ClientModInitializer {
                     mc.player.sendMessage(Text.literal("Song to text: " + (config.enabled ? "ON" : "OFF")), true);
                 }
             }
-            MediaState s = POLLER.state();
+            MediaState s = current();
             CLOCK.tick(s);
             if (s.hasTrack() && !s.key().equals(LYRICS.loadedKey())) LYRICS.request(s);
         });

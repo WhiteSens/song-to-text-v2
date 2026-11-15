@@ -29,6 +29,7 @@ public class HudRenderer {
         long born, died = -1;
         double x, y, z;       // якір у світі
         double nx, nz;        // нормаль тексту (до гравця на момент появи)
+        double fx, fz, dist;  // напрям «вперед» і відстань на момент появи
         float tilt;           // нахил, рад
     }
 
@@ -40,9 +41,9 @@ public class HudRenderer {
         MinecraftClient mc = MinecraftClient.getInstance();
         Config cfg = SongToTextClient.config;
         PlayerEntity p = mc.player;
-        MediaState st = SongToTextClient.POLLER.state();
+        MediaState st = SongToTextClient.current();
         if (p == null || mc.options.hudHidden || !cfg.enabled || !st.hasTrack()
-                || (cfg.hideOnPause && !st.playing())) { shown.clear(); return; }
+                || (cfg.hideOnPause && !SongToTextClient.CLOCK.playing(st))) { shown.clear(); return; }
 
         long now = System.currentTimeMillis();
         double sec = SongToTextClient.CLOCK.seconds(st, cfg.syncOffset);
@@ -74,10 +75,13 @@ public class HudRenderer {
         double fx = -Math.sin(yaw), fz = Math.cos(yaw);       // вперед
         double rx = -Math.cos(yaw), rz = -Math.sin(yaw);      // вправо
         Vec3d eye = p.getCameraPosVec(tp);
-        double side = (rnd.nextDouble() - 0.5) * 4.4, up = -0.3 + rnd.nextDouble() * 1.4;
-        s.x = eye.x + fx * 5.5 + rx * side;
-        s.z = eye.z + fz * 5.5 + rz * side;
+        double dist = SongToTextClient.config.distance;      // 1..30 блоків
+        double k = dist / 5.5;                               // розкид масштабується, щоб кутове положення лишалось тим самим
+        double side = (rnd.nextDouble() - 0.5) * 4.4 * k, up = (-0.3 + rnd.nextDouble() * 1.4) * k;
+        s.x = eye.x + fx * dist + rx * side;
+        s.z = eye.z + fz * dist + rz * side;
         s.y = eye.y + up;
+        s.fx = fx; s.fz = fz; s.dist = dist;
         s.nx = -fx; s.nz = -fz;
         s.tilt = (float) Math.toRadians((rnd.nextDouble() - 0.5) * 18);
         return s;
@@ -106,6 +110,11 @@ public class HudRenderer {
         double[] r = {-cy, 0, -sy};
         double[] u = {r[1] * f[2] - r[2] * f[1], r[2] * f[0] - r[0] * f[2], r[0] * f[1] - r[1] * f[0]};
 
+        // якщо гравець добіг до тексту — штовхаємо якір уперед, щоб його не можна було перебігти
+        double ahead = (s.x - eye.x) * s.fx + (s.z - eye.z) * s.fz;
+        double minAhead = Math.max(0.8, s.dist * 0.4);
+        if (ahead < minAhead) { s.x += s.fx * (minAhead - ahead); s.z += s.fz * (minAhead - ahead); }
+
         double dx = s.x - eye.x, dy = s.y + age * 0.12 - eye.y, dz = s.z - eye.z;
         double zc = dx * f[0] + dy * f[1] + dz * f[2];
         if (zc < 0.3) return;
@@ -119,7 +128,7 @@ public class HudRenderer {
         double dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
         double squash = Math.max(0.3, Math.abs((s.nx * -dx + s.nz * -dz) / Math.max(1e-4, Math.hypot(dx, dz))));
         TextRenderer tr = mc.textRenderer;
-        float scale = (float) (0.075 * cfg.size / 100.0 * focal / zc) * pop;
+        float scale = (float) (0.075 * Math.sqrt(s.dist / 5.5) * cfg.size / 100.0 * focal / zc) * pop;   // sqrt: далекий текст росте, щоб лишатись читабельним
         int tw = tr.getWidth(styled(cfg, s.cue.text()));
         scale = Math.min(scale, W * 0.9f / Math.max(1, tw));
         if (dist > 0) drawText(ctx, tr, cfg, s.cue.text(), sx, syy, scale, s.tilt, (float) squash, alpha);

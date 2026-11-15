@@ -36,15 +36,26 @@ public class LyricsManager {
 
     public String loadedKey() { return loadedKey; }
 
+    private record Entry(List<Cue> lines, List<Cue> chunks, long at) { }
+    private final java.util.Map<String, Entry> cache = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static String normKey(MediaState s) { return (s.artist() + "|" + s.title()).toLowerCase(); }
+
     public void request(MediaState s) {
         final int my = ++version;
         loadedKey = s.key();
+        final String nk = normKey(s);
+        Entry e = cache.get(nk);
+        // той самий трек уже завантажено (напр. після перемотування) — віддаємо миттєво
+        if (e != null && (!e.lines().isEmpty() || System.currentTimeMillis() - e.at() < 60000)) {
+            lines = e.lines(); chunks = e.chunks(); return;
+        }
         chunks = List.of(); lines = List.of();
         exec.submit(() -> {
             try {
                 String lrc = fetch(s.artist(), s.title());
-                if (lrc == null || my != version) return;
-                build(lrc, my);
+                if (lrc == null) { cache.put(nk, new Entry(List.of(), List.of(), System.currentTimeMillis())); return; }
+                build(lrc, my, nk);
             } catch (Exception ignored) { }
         });
     }
@@ -147,7 +158,7 @@ public class LyricsManager {
     // ---------- парсинг ----------
     private record Raw(long ms, String text) { }
 
-    private void build(String lrc, int my) {
+    private void build(String lrc, int my, String nk) {
         List<Raw> raw = new ArrayList<>();
         for (String line : lrc.split("\\R")) {
             Matcher m = TS.matcher(line);
@@ -181,6 +192,7 @@ public class LyricsManager {
                 C.add(new Cue(s, e, String.join(" ", java.util.Arrays.copyOfRange(w, a, b)), i * 100 + p));
             }
         }
+        cache.put(nk, new Entry(L, C, System.currentTimeMillis()));
         if (my == version) { lines = L; chunks = C; }
     }
 }

@@ -23,6 +23,9 @@ public final class MenuRenderer {
     public static final int PK_X = 930, PK_Y = 208, PK_W = 260, PK_H = 250;
     public static final int SQ_X = 944, SQ_Y = 222, SQ_S = 190;
     public static final int HUE_X = 1148, HUE_W = 26;
+    // панель «Дистанція тексту» під карткою
+    public static final int DS_X = 72, DS_Y = 478, DS_W = 1132, DS_H = 70, DS_YC = DS_Y + DS_H / 2;
+    public static final int DS_TX0 = 500, DS_TX1 = 1040;     // доріжка повзунка
 
     private static final String[] LEFT = {"Текст на экране", "Режим 3D", "Обводка текста", "Скрывать на паузе"};
     private static final String[] RIGHT = {"Цвет RGB", "Шрифт текста", "Размер текста", "Сдвиг синхронизации"};
@@ -84,6 +87,7 @@ public final class MenuRenderer {
         text(g, RIGHT[3], 677, ROW_Y[3], 30, Color.WHITE, false);
         text(g, String.format(java.util.Locale.ROOT, "%.1f с", cfg.syncOffset), 1176, ROW_Y[3], 30, Color.WHITE, true);
 
+        distancePanel(g, cfg.distance);
         themeButton(g, cfg.darkTheme);
         if (pickerOpen) picker(g, cfg.color, hsv);
         g.dispose();
@@ -91,6 +95,24 @@ public final class MenuRenderer {
     }
 
     // ---------- елементи ----------
+    private static void distancePanel(Graphics2D g, int dist) {
+        g.setColor(new Color(0x10, 0x12, 0x18, 150));
+        g.fill(new RoundRectangle2D.Float(DS_X, DS_Y, DS_W, DS_H, 22, 22));
+        g.setColor(new Color(255, 255, 255, 50));
+        g.setStroke(new BasicStroke(1.5f));
+        g.draw(new RoundRectangle2D.Float(DS_X, DS_Y, DS_W, DS_H, 22, 22));
+        text(g, "Дистанция текста (3D)", 94, DS_YC, 30, Color.WHITE, false);
+        float t = (dist - Config.DIST_MIN) / (float) (Config.DIST_MAX - Config.DIST_MIN);
+        float kx = DS_TX0 + t * (DS_TX1 - DS_TX0);
+        g.setColor(OFF);
+        g.fill(new RoundRectangle2D.Float(DS_TX0, DS_YC - 5, DS_TX1 - DS_TX0, 10, 10, 10));
+        g.setColor(TEAL);
+        g.fill(new RoundRectangle2D.Float(DS_TX0, DS_YC - 5, kx - DS_TX0, 10, 10, 10));
+        g.setColor(new Color(0x25, 0xC7, 0xD9, 70)); g.fill(new Ellipse2D.Float(kx - 18, DS_YC - 18, 36, 36));
+        g.setColor(Color.WHITE); g.fill(new Ellipse2D.Float(kx - 13, DS_YC - 13, 26, 26));
+        text(g, dist + (dist % 10 == 1 && dist != 11 ? " блок" : (dist % 10 >= 2 && dist % 10 <= 4 && (dist < 12 || dist > 14) ? " блока" : " блоков")), 1176, DS_YC, 30, Color.WHITE, true);
+    }
+
     private static void text(Graphics2D g, String s, float x, float yc, float size, Color c, boolean right) {
         g.setFont(font(size));
         FontMetrics fm = g.getFontMetrics();

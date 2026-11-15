@@ -20,6 +20,8 @@ public class Config {
     public FontStyle font = FontStyle.NEON;
     public int size = 100;               // 50..300 %
     public double syncOffset = 0.0;      // секунди
+    public static final int DIST_MIN = 1, DIST_MAX = 30;
+    public int distance = 6;             // відстань 3D-тексту від гравця, блоків (1..30)
     /** Режим показу: CHUNKS = шматки по 3-6 слів, FULL_LINES = повні рядки. */
     public DisplayMode display = DisplayMode.CHUNKS;
 
@@ -30,7 +32,7 @@ public class Config {
         try {
             if (Files.exists(path())) {
                 Config c = GSON.fromJson(Files.readString(path()), Config.class);
-                if (c != null) return c;
+                if (c != null) { c.distance = Math.max(DIST_MIN, Math.min(DIST_MAX, c.distance == 0 ? 6 : c.distance)); return c; }
             }
         } catch (Exception ignored) { }
         return new Config();
