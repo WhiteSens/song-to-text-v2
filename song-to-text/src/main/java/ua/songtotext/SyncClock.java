@@ -42,6 +42,14 @@ public class SyncClock {
 
         if (s.endMs() > 0) { goodPos = s.posMs(); goodAt = s.receivedAt(); }
         if (s.receivedAt() != lastRecv) {
+            // діагностика: стрибок позиції відносно очікуваної (перемотування, збій таймлайну) пишемо в latest.log
+            if (lastPos >= 0 && lastRecv >= 0 && s.endMs() > 0 && s.posMs() != lastPos) {
+                long expected = lastPos + (s.playing() ? s.receivedAt() - lastRecv : 0);
+                long diff = s.posMs() - expected;
+                if (Math.abs(diff) > 700)
+                    SongToTextClient.LOGGER.info("[Song to text] стрибок позиції {} мс (app={}, playing={}, pos={} мс)",
+                            diff, s.app(), s.playing(), s.posMs());
+            }
             if (s.playing() && s.endMs() > 0 && lastPos >= 0 && s.posMs() != lastPos) advancing = true;
             lastRecv = s.receivedAt(); lastPos = s.posMs();
         }

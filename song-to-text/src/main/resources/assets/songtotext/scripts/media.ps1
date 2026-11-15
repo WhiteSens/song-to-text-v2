@@ -1,4 +1,4 @@
-# Довгоживучий процес: раз на секунду друкує один JSON-рядок про активну сесію медіапанелі Windows.
+# Довгоживучий процес: 4 рази на секунду друкує один JSON-рядок про активну сесію медіапанелі Windows.
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 Add-Type -AssemblyName System.Runtime.WindowsRuntime
 $asTaskGeneric = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object { $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1' })[0]
@@ -27,5 +27,5 @@ while ($true) {
     } else { '{}' }
   } catch { '{}' }
   [Console]::Out.Flush()
-  Start-Sleep -Milliseconds 1000
+  Start-Sleep -Milliseconds 250
 }
