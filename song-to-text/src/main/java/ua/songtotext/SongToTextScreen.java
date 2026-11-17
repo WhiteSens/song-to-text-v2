@@ -25,7 +25,7 @@ public class SongToTextScreen extends Screen {
     private final Screen parent;
     private NativeImageBackedTexture tex;
     private int texW, texH, gx, gy, gw, gh;
-    private boolean dirty = true, pickerOpen = false, dragSV = false, dragHue = false, dragDist = false;
+    private boolean dirty = true, pickerOpen = false, fontOpen = false, dragSV = false, dragHue = false, dragDist = false;
     private final float[] hsv = new float[3];
 
     public SongToTextScreen(Screen parent) {
@@ -68,7 +68,7 @@ public class SongToTextScreen extends Screen {
     }
 
     private void paint() {
-        BufferedImage bi = MenuRenderer.render(texW, texH, SongToTextClient.config, pickerOpen, hsv);
+        BufferedImage bi = MenuRenderer.render(texW, texH, SongToTextClient.config, pickerOpen, fontOpen, hsv);
         int[] px = bi.getRGB(0, 0, texW, texH, null, 0, texW);
         NativeImage img = tex.getImage();
         for (int y = 0; y < texH; y++) for (int x = 0; x < texW; x++) img.setColorArgb(x, y, px[y * texW + x]);
@@ -94,6 +94,18 @@ public class SongToTextScreen extends Screen {
             if (!in(x, y, SW_X, SW_Y, SW_X + SW_W, SW_Y + SW_H)) return true;
             return true;
         }
+        if (fontOpen) {
+            if (btn == 0 && in(x, y, FL_X, FL_Y, FL_X + FL_W, FL_Y + FL_H)) {
+                int idx = (int) ((y - FL_Y - 6) / FL_ITEM);
+                if (idx >= 0 && idx < Fonts.NAMES.length) { cfg.font = Config.FontStyle.values()[idx]; cfg.save(); }
+            }
+            fontOpen = false; dirty = true; return true;                        // будь-який клік закриває список
+        }
+        if (btn == 0 && in(x, y, AN_B0, AN_YC - 21, AN_B1, AN_YC + 21)) {
+            int idx = (int) ((x - AN_B0) / (AN_BW + AN_GAP));
+            if (idx >= 0 && idx < 5 && x - AN_B0 - idx * (AN_BW + AN_GAP) <= AN_BW) { cfg.anim = Config.AnimStyle.values()[idx]; cfg.save(); dirty = true; }
+            return true;
+        }
         if (btn == 0 && in(x, y, DS_TX0 - 25, DS_Y, DS_TX1 + 25, DS_Y + DS_H)) { dragDist = true; pickDist(x); return true; }
         if (btn == 0 && in(x, y, TH_X, TH_Y, TH_X + TH_W, TH_Y + TH_H)) { cfg.darkTheme = !cfg.darkTheme; cfg.save(); dirty = true; return true; }
         for (int i = 0; i < 4; i++) {
@@ -107,9 +119,7 @@ public class SongToTextScreen extends Screen {
             int c = cfg.color; Color.RGBtoHSB(c >> 16 & 255, c >> 8 & 255, c & 255, hsv);
             pickerOpen = true; dirty = true; return true;
         }
-        for (int i = 0; i < 3; i++) {
-            if (in(x, y, FONT_BTN[i][0], FONT_Y0, FONT_BTN[i][1], FONT_Y1)) { cfg.font = Config.FontStyle.values()[i]; cfg.save(); dirty = true; return true; }
-        }
+        if (btn == 0 && in(x, y, FD_X0, FD_Y0, FD_X1, FD_Y1)) { fontOpen = true; dirty = true; return true; }
         int dir = btn == 1 ? -1 : 1;
         if (in(x, y, 1090, ROW_Y[2] - 24, 1200, ROW_Y[2] + 24)) { step(0, dir); return true; }
         if (in(x, y, 1090, ROW_Y[3] - 24, 1200, ROW_Y[3] + 24)) { step(1, dir); return true; }
@@ -168,7 +178,7 @@ public class SongToTextScreen extends Screen {
 
     private void step(int what, int dir) {
         Config cfg = SongToTextClient.config;
-        if (what == 0) cfg.size = Math.max(50, Math.min(300, cfg.size + 10 * dir));
+        if (what == 0) cfg.size = Math.max(Config.SIZE_MIN, Math.min(Config.SIZE_MAX, cfg.size + 5 * dir));
         else cfg.syncOffset = Math.max(-10, Math.min(10, Math.round((cfg.syncOffset + 0.1 * dir) * 10) / 10.0));
         cfg.save(); dirty = true;
     }

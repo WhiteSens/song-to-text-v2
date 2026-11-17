@@ -16,8 +16,10 @@ public final class MenuRenderer {
     // ---- розмітка (спільна з екраном для кліків) ----
     public static final int[] ROW_Y = {173, 253, 333, 413};
     public static final int TOG_X = 490, TOG_W = 88, TOG_H = 44;
-    public static final int[][] FONT_BTN = {{903, 1003}, {1011, 1091}, {1099, 1191}};
-    public static final int FONT_Y0 = 235, FONT_Y1 = 278;
+    // випадаючий вибір шрифту (кнопка + список)
+    public static final int FD_X0 = 903, FD_X1 = 1191, FD_Y0 = 235, FD_Y1 = 278;
+    public static final int FL_X = 903, FL_Y = 284, FL_W = 288, FL_ITEM = 40;
+    public static final int FL_H = Fonts.NAMES.length * FL_ITEM + 12;
     public static final int SW_X = 1117, SW_Y = 146, SW_W = 56, SW_H = 54;
     public static final int TH_X = 1010, TH_Y = 50, TH_W = 190, TH_H = 54;
     public static final int PK_X = 930, PK_Y = 208, PK_W = 260, PK_H = 250;
@@ -26,10 +28,14 @@ public final class MenuRenderer {
     // панель «Дистанція тексту» під карткою
     public static final int DS_X = 72, DS_Y = 478, DS_W = 1132, DS_H = 70, DS_YC = DS_Y + DS_H / 2;
     public static final int DS_TX0 = 500, DS_TX1 = 1040;     // доріжка повзунка
+    // панель «Анімація появи»
+    public static final int AN_X = 72, AN_Y = 558, AN_W = 1132, AN_H = 70, AN_YC = AN_Y + AN_H / 2;
+    public static final int AN_B0 = 420, AN_B1 = 1176, AN_GAP = 8;
+    public static final int AN_BW = (AN_B1 - AN_B0 - AN_GAP * 4) / 5;
+    private static final String[] ANIM_NAMES = {"Простая", "Увеличение", "Подъём", "Приближение", "Печать"};
 
     private static final String[] LEFT = {"Текст на экране", "Режим 3D", "Обводка текста", "Скрывать на паузе"};
     private static final String[] RIGHT = {"Цвет RGB", "Шрифт текста", "Размер текста", "Сдвиг синхронизации"};
-    private static final String[] FONT_NAME = {"Minecraft", "Неон", "Обычный"};
     private static final Color TEAL = new Color(0x25C7D9), OFF = new Color(0x4A4A50);
 
     private static BufferedImage dayBg, nightBg;
@@ -54,7 +60,7 @@ public final class MenuRenderer {
         return new Font(family, Font.PLAIN, 1).deriveFont(size);
     }
 
-    public static BufferedImage render(int pw, int ph, Config cfg, boolean pickerOpen, float[] hsv) {
+    public static BufferedImage render(int pw, int ph, Config cfg, boolean pickerOpen, boolean fontOpen, float[] hsv) {
         if (dayBg == null) dayBg = load("panel_day.png");
         if (nightBg == null) nightBg = load("panel_night.png");
         BufferedImage out = new BufferedImage(pw, ph, BufferedImage.TYPE_INT_ARGB);
@@ -81,15 +87,17 @@ public final class MenuRenderer {
         text(g, RIGHT[0], 677, ROW_Y[0], 30, Color.WHITE, false);
         swatch(g, cfg.color);
         text(g, RIGHT[1], 677, ROW_Y[1], 30, Color.WHITE, false);
-        for (int i = 0; i < 3; i++) fontButton(g, i, cfg.font.ordinal() == i);
+        fontDropdown(g, cfg.font.ordinal());
         text(g, RIGHT[2], 677, ROW_Y[2], 30, Color.WHITE, false);
         text(g, cfg.size + "%", 1176, ROW_Y[2], 30, Color.WHITE, true);
         text(g, RIGHT[3], 677, ROW_Y[3], 30, Color.WHITE, false);
         text(g, String.format(java.util.Locale.ROOT, "%.1f с", cfg.syncOffset), 1176, ROW_Y[3], 30, Color.WHITE, true);
 
         distancePanel(g, cfg.distance);
+        animPanel(g, cfg.anim.ordinal());
         themeButton(g, cfg.darkTheme);
         if (pickerOpen) picker(g, cfg.color, hsv);
+        if (fontOpen) fontList(g, cfg.font.ordinal());
         g.dispose();
         return out;
     }
@@ -144,17 +152,53 @@ public final class MenuRenderer {
         g.setClip(old);
     }
 
-    private static void fontButton(Graphics2D g, int i, boolean sel) {
-        int x0 = FONT_BTN[i][0], x1 = FONT_BTN[i][1], y0 = FONT_Y0, h = FONT_Y1 - FONT_Y0;
-        Shape r = new RoundRectangle2D.Float(x0, y0, x1 - x0, h, 12, 12);
-        g.setColor(sel ? TEAL : new Color(8, 12, 18, 185)); g.fill(r);
-        if (!sel) { g.setColor(new Color(255, 255, 255, 95)); g.setStroke(new BasicStroke(1.6f)); g.draw(r); }
-        float size = 21;
-        g.setFont(font(size));
-        while (g.getFontMetrics().stringWidth(FONT_NAME[i]) > (x1 - x0) - 12 && size > 12) { size -= 0.5f; g.setFont(font(size)); }
+    private static void fontDropdown(Graphics2D g, int sel) {
+        int w = FD_X1 - FD_X0, h = FD_Y1 - FD_Y0;
+        g.setColor(TEAL); g.fill(new RoundRectangle2D.Float(FD_X0, FD_Y0, w, h, 12, 12));
+        fitText(g, Fonts.NAMES[sel], Fonts.awt(sel, 24), FD_X0 + 16, FD_Y0 + h / 2f, w - 62, Color.WHITE);
+        float cx = FD_X1 - 24, cy = FD_Y0 + h / 2f;                       // стрілка вниз
+        Path2D tri = new Path2D.Float(); tri.moveTo(cx - 7, cy - 3); tri.lineTo(cx + 7, cy - 3); tri.lineTo(cx, cy + 5); tri.closePath();
+        g.setColor(Color.WHITE); g.fill(tri);
+    }
+
+    private static void fontList(Graphics2D g, int sel) {
+        g.setColor(new Color(0, 0, 0, 90)); g.fill(new RoundRectangle2D.Float(FL_X + 3, FL_Y + 5, FL_W, FL_H, 20, 20));
+        Shape box = new RoundRectangle2D.Float(FL_X, FL_Y, FL_W, FL_H, 20, 20);
+        g.setColor(new Color(0x14, 0x18, 0x20, 247)); g.fill(box);
+        g.setColor(new Color(255, 255, 255, 80)); g.setStroke(new BasicStroke(1.6f)); g.draw(box);
+        for (int i = 0; i < Fonts.NAMES.length; i++) {
+            float y = FL_Y + 6 + i * FL_ITEM;
+            if (i == sel) { g.setColor(TEAL); g.fill(new RoundRectangle2D.Float(FL_X + 6, y + 2, FL_W - 12, FL_ITEM - 4, 10, 10)); }
+            fitText(g, Fonts.NAMES[i], Fonts.awt(i, 24), FL_X + 20, y + FL_ITEM / 2f, FL_W - 40, Color.WHITE);
+        }
+    }
+
+    private static void animPanel(Graphics2D g, int sel) {
+        g.setColor(new Color(0x10, 0x12, 0x18, 150));
+        g.fill(new RoundRectangle2D.Float(AN_X, AN_Y, AN_W, AN_H, 22, 22));
+        g.setColor(new Color(255, 255, 255, 50)); g.setStroke(new BasicStroke(1.5f));
+        g.draw(new RoundRectangle2D.Float(AN_X, AN_Y, AN_W, AN_H, 22, 22));
+        text(g, "Анимация текста", 94, AN_YC, 30, Color.WHITE, false);
+        for (int i = 0; i < 5; i++) {
+            float x0 = AN_B0 + i * (AN_BW + AN_GAP), y0 = AN_YC - 21, h = 42;
+            Shape r = new RoundRectangle2D.Float(x0, y0, AN_BW, h, 12, 12);
+            boolean on = i == sel;
+            g.setColor(on ? TEAL : new Color(8, 12, 18, 185)); g.fill(r);
+            if (!on) { g.setColor(new Color(255, 255, 255, 95)); g.setStroke(new BasicStroke(1.6f)); g.draw(r); }
+            fitText(g, ANIM_NAMES[i], font(21), x0 + 8, AN_YC, AN_BW - 16, Color.WHITE, true);
+        }
+    }
+
+    private static void fitText(Graphics2D g, String s, Font f, float x, float yc, float maxW, Color c) { fitText(g, s, f, x, yc, maxW, c, false); }
+
+    /** Малює текст заданим шрифтом, зменшуючи його, якщо не влазить у maxW; center — по центру maxW. */
+    private static void fitText(Graphics2D g, String s, Font f, float x, float yc, float maxW, Color c, boolean center) {
+        g.setFont(f);
+        while (g.getFontMetrics().stringWidth(s) > maxW && f.getSize2D() > 11) { f = f.deriveFont(f.getSize2D() - 0.5f); g.setFont(f); }
         FontMetrics fm = g.getFontMetrics();
-        float tx = x0 + (x1 - x0 - fm.stringWidth(FONT_NAME[i])) / 2f, ty = y0 + h / 2f + (fm.getAscent() - fm.getDescent()) / 2f;
-        g.setColor(Color.WHITE); g.drawString(FONT_NAME[i], tx, ty);
+        float tx = center ? x + (maxW - fm.stringWidth(s)) / 2f : x;
+        float by = yc + (fm.getAscent() - fm.getDescent()) / 2f;
+        g.setColor(c); g.drawString(s, tx, by);
     }
 
     private static void themeButton(Graphics2D g, boolean dark) {
